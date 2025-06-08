@@ -1,0 +1,29 @@
+{
+  "name": "luck-loop",
+  "version": "1.0.0",
+  "description": "Luck Loop - Farcaster Frames NFT Slot Machine",
+  "main": "backend/src/app.js",
+  "scripts": {
+    "start": "node backend/src/app.js",
+    "dev": "nodemon backend/src/app.js",
+    "deploy": "npx hardhat run contracts/deploy.js --network base",
+    "test": "npx hardhat test",
+    "compile": "npx hardhat compile",
+    "verify": "npx hardhat verify --network base"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "canvas": "^2.11.2",
+    "ethers": "^6.8.1",
+    "redis": "^4.6.10",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^3.0.2",
+    "hardhat": "^2.17.2",
+    "nodemon": "^3.0.1"
+  }
+}
