@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luck Loop - Mint Your NFT</title>
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .nft-preview {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .symbols {
+            font-size: 4rem;
+            margin: 20px 0;
+        }
+
+        .rarity {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 10px 0;
+            text-transform: uppercase;
+        }
+
+        .rarity.legendary { color: #FFD700; }
+        .rarity.epic { color: #FF6B35; }
+        .rarity.rare { color: #9B59B6; }
+        .rarity.common { color: #95A5A6; }
+
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+
+        .status.success {
+            background: rgba(46, 204, 113, 0.2);
+            border: 1px solid #2ecc71;
+        }
+
+        .status.error {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+        }
+
+        .status.info {
+            background: rgba(52, 152, 219, 0.2);
+            border: 1px solid #3498db;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .wallet-info {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            font-size: 0.9rem;
+        }
+
+        .gas-info {
+            background: rgba(255, 193, 7, 0.2);
+            border: 1px solid #ffc107;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            font-size: 0.9rem;
+        }
+
+        .transaction-link {
+            background: rgba(0, 123, 255, 0.2);
+            border: 1px solid #007bff;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .transaction-link a {
+            color: #87ceeb;
+            text-decoration: none;
+        }
+
+        .transaction-link a:hover {
+            text-decoration: underline;
+        }
+
+        .steps {
+            text-align: left;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .steps ol {
+            padding-left: 20px;
+        }
+
+        .steps li {
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎰 Luck Loop</h1>
+        <p>Mint Your Lucky NFT</p>
+
+        <div id="loading" class="status info">
+            <div class="loading"></div> Loading game result...
+        </div>
+
+        <div id="game-result" class="hidden">
+            <div class="nft-preview">
+                <div id="symbols" class="symbols"></div>
+                <div id="rarity" class="rarity"></div>
+                <h3 id="name"></h3>
+                <p id="description"></p>
+            </div>
+
+            <div id="wallet-section">
+                <button id="connect-wallet">Connect Wallet</button>
+                <div id="wallet-info" class="wallet-info hidden">
+                    <strong>Connected:</strong> <span id="wallet-address"></span><br>
+                    <strong>Network:</strong> <span id="network-name"></span>
+                </div>
+            </div>
+
+            <div id="mint-section" class="hidden">
+                <div class="gas-info">
+                    ⚠️ <strong>Important:</strong> You will pay gas fees for this transaction. Make sure you have enough ETH in your wallet.
+                </div>
+                
+                <div class="steps">
+                    <h4>Minting Process:</h4>
+                    <ol>
+                        <li>Store your game result on the blockchain</li>
+                        <li>Mint your NFT (this creates and transfers the NFT to you)</li>
+                        <li>Both transactions require gas fees paid by you</li>
+                    </ol>
+                </div>
+
+                <button id="store-result-button">1. Store Game Result</button>
+                <button id="mint-button" class="hidden">2. Mint NFT</button>
+                
+                <div id="transaction-status"></div>
+            </div>
+
+            <div id="success-section" class="hidden">
+                <div class="status success">
+                    🎉 NFT Minted Successfully!
+                </div>
+                <div id="nft-link"></div>
+                <button onclick="window.location.href='/'">Play Again</button>
+            </div>
+        </div>
+
+        <div id="error-section" class="hidden">
+            <div class="status error">
+                <h3>😞 Unable to Mint</h3>
+                <p id="error-message">This result cannot be minted as an NFT.</p>
+            </div>
+            <button onclick="window.location.href='/'">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Configuration - these would come from environment variables in production
+        const CONFIG = {
+            GAME_CONTRACT_ADDRESS: '0x...', // Replace with actual deployed address
+            NFT_CONTRACT_ADDRESS: '0x...', // Replace with actual deployed address
+            API_BASE_URL: window.location.origin, // Assumes API is on same domain
+            CHAIN_ID: 1, // Ethereum mainnet, change as needed
+            EXPLORER_URL: 'https://etherscan.io'
+        };
+
+        // Contract ABIs (simplified versions)
+        const GAME_CONTRACT_ABI = [
+            "function storeGameResult(address player, string symbols, string rarity, string name, string description, bytes32 gameId, bytes signature) external",
+            "function mintNFTFromGame(bytes32 gameId, string tokenURI) external",
+            "function getGameResult(bytes32 gameId) view returns (tuple(address player, string symbols, string rarity, string name, string description, uint256 timestamp, bool minted, bytes32 gameId))"
+        ];
+
+        const NFT_CONTRACT_ABI = [
+            "function tokenURI(uint256 tokenId) view returns (string)",
+            "function ownerOf(uint256 tokenId) view returns (address)"
+        ];
+
+        let provider, signer, gameContract, nftContract;
+        let gameData = null;
+        let gameId = null;
+
+        // Initialize the app
+        async function init() {
+            // Get game ID from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            gameId = urlParams.get('gameId') || window.location.pathname.split('/').pop();
+
+            if (!gameId || gameId === 'mint') {
+                showError('Invalid game ID');
+                return;
+            }
+
+            try {
+                // Load game result
+                await loadGameResult();
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showError('Failed to load game result');
+            }
+        }
+
+        // Load game result from API
+        async function loadGameResult() {
+            try {
+                const response = await fetch(`${CONFIG.API_BASE_URL}/api/game/result/${gameId}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to load game result');
+                }
+
+                gameData = data;
+                displayGameResult();
+            } catch (error) {
+                console.error('Error loading game result:', error);
+                showError('Game result not found or expired');
+            }
+        }
+
+        // Display game result
+        function displayGameResult() {
+            document.getElementById('loading').classList.add('hidden');
+
+            if (!gameData.canMint) {
+                document.getElementById('error-section').classList.remove('hidden');
+                document.getElementById('error-message').textContent = 
+                    'Common results don\'t get NFTs. Try spinning again for rare results!';
+                return;
+            }
+
+            document.getElementById('game-result').classList.remove('hidden');
+            document.getElementById('symbols').textContent = gameData.symbols.join('');
+            document.getElementById('rarity').textContent = gameData.rarity;
+            document.getElementById('rarity').className = `rarity ${gameData.rarity}`;
+            document.getElementById('name').textContent = gameData.name;
+            document.getElementById('description').textContent = gameData.description;
+        }
+
+        // Connect wallet
+        async function connectWallet() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    alert('Please install MetaMask or another Web3 wallet');
+                    return;
+                }
+
+                // Request account access
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                signer = provider.getSigner();
+                
+                // Get network info
+                const network = await provider.getNetwork();
+                const address = await signer.getAddress();
+
+                // Initialize contracts
+                gameContract = new ethers.Contract(CONFIG.GAME_CONTRACT_ADDRESS, GAME_CONTRACT_ABI, signer);
+                nftContract = new ethers.Contract(CONFIG.NFT_CONTRACT_ADDRESS, NFT_CONTRACT_ABI, signer);
+
+                // Update UI
+                document.getElementById('connect-wallet').classList.add('hidden');
+                document.getElementById('wallet-info').classList.remove('hidden');
+                document.getElementById('wallet-address').textContent = `${address.slice(0, 6)}...${address.slice(-4)}`;
+                document.getElementById('network-name').textContent = network.name;
+                document.getElementById('mint-section').classList.remove('hidden');
+
+                // Check if we need to switch networks
+                if (network.chainId !== CONFIG.CHAIN_ID) {
+                    await switchNetwork();
+                }
+
+            } catch (error) {
+                console.error('Error connecting wallet:', error);
+                showStatus('Failed to connect wallet', 'error');
+            }
+        }
+
+        // Switch network
+        async function switchNetwork() {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: `0x${CONFIG.CHAIN_ID.toString(16)}` }],
+                });
+            } catch (error) {
+                console.error('Error switching network:', error);
+                showStatus('Please switch to the correct network', 'error');
+            }
+        }
+
+        // Store game result on blockchain
+        async function storeGameResult() {
+            try {
+                const button = document.getElementById('store-result-button');
+                button.disabled = true;
+                button.innerHTML = '<div class="loading"></div> Storing...';
+
+                showStatus('Preparing transaction...', 'info');
+
+                const address = await signer.getAddress();
+                
+                // Get signature from backend
+                const response = await fetch(`${CONFIG.API_BASE_URL}/api/game/store-result`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        playerAddress: address,
+                        gameId: gameId
+                    })
+                });
+
+                const signatureData = await response.json();
+                if (!response.ok) {
+                    throw new Error(signatureData.error || 'Failed to get signature');
+                }
+
+                showStatus('Please confirm the transaction in your wallet...', 'info');
+
+                // Call smart contract
+                const tx = await gameContract.storeGameResult(
+                    address,
+                    gameData.symbols.join(''),
+                    gameData.rarity,
+                    gameData.name,
+                    gameData.description,
+                    gameId,
+                    signatureData.signature
+                );
+
+                showStatus('Transaction submitted. Waiting for confirmation...', 'info');
+                showTransactionLink(tx.hash);
+
+                await tx.wait();
+
+                showStatus('Game result stored successfully!', 'success');
+                button.classList.add('hidden');
+                document.getElementById('mint-button').classList.remove('hidden');
+
+            } catch (error) {
+                console.error('Error storing game result:', error);
+                showStatus(`Error: ${error.message}`, 'error');
+                button.disabled = false;
+                button.innerHTML = '1. Store Game Result';
+            }
+        }
+
+        // Mint NFT
+        async function mintNFT() {
+            try {
+                const button = document.getElementById('mint-button');
+                button.disabled = true;
+                button.innerHTML = '<div class="loading"></div> Minting...';
+
+                showStatus('Please confirm the minting transaction...', 'info');
+
+                const tx = await gameContract.mintNFTFromGame(gameId, gameData.tokenURI);
+
+                showStatus('Minting transaction submitted. Waiting for confirmation...', 'info');
+                showTransactionLink(tx.hash);
+
+                const receipt = await tx.wait();
+
+                // Get token ID from events
+                const mintEvent = receipt.events?.find(e => e.event === 'NFTMintedByUser');
+                const tokenId = mintEvent?.args?.tokenId?.toString();
+
+                showStatus('NFT minted successfully!', 'success');
+                
+                // Show success section
+                document.getElementById('mint-section').classList.add('hidden');
+                document.getElementById('success-section').classList.remove('hidden');
+                
+                if (tokenId) {
+                    const nftLink = `${CONFIG.EXPLORER_URL}/token/${CONFIG.NFT_CONTRACT_ADDRESS}?a=${tokenId}`;
+                    document.getElementById('nft-link').innerHTML = 
+                        `<div class="transaction-link"><a href="${nftLink}" target="_blank">View Your NFT #${tokenId}</a></div>`;
+                }
+
+            } catch (error) {
+                console.error('Error minting NFT:', error);
+                showStatus(`Minting failed: ${error.message}`, 'error');
+                button.disabled = false;
+                button.innerHTML = '2. Mint NFT';
+            }
+        }
+
+        // Show status message
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('transaction-status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        // Show transaction link
+        function showTransactionLink(hash) {
+            const link = `${CONFIG.EXPLORER_URL}/tx/${hash}`;
+            const statusDiv = document.getElementById('transaction-status');
+            statusDiv.innerHTML += `<div class="transaction-link"><a href="${link}" target="_blank">View Transaction</a></div>`;
+        }
+
+        // Show error
+        function showError(message) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('error-section').classList.remove('hidden');
+            document.getElementById('error-message').textContent = message;
+        }
+
+        // Event listeners
+        document.getElementById('connect-wallet').addEventListener('click', connectWallet);
+        document.getElementById('store-result-button').addEventListener('click', storeGameResult);
+        document.getElementById('mint-button').addEventListener('click', mintNFT);
+
+        // Handle account changes
+        if (window.ethereum) {
+            window.ethereum.on('accountsChanged', (accounts) => {
+                if (accounts.length === 0) {
+                    location.reload();
+                } else {
+                    connectWallet();
+                }
+            });
+
+            window.ethereum.on('chainChanged', () => {
+                location.reload();
+            });
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
