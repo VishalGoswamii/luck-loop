@@ -5,8 +5,9 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract LuckLoopNFT is ERC721URIStorage, Ownable {
+contract LuckLoopNFT is ERC721URIStorage, Ownable, ReentrancyGuard {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIds;
 
@@ -17,21 +18,36 @@ contract LuckLoopNFT is ERC721URIStorage, Ownable {
         string symbols;
         uint256 timestamp;
         address player;
+        bytes32 gameId;
     }
 
     mapping(uint256 => NFTMetadata) public nftMetadata;
     mapping(address => uint256[]) public playerNFTs;
     mapping(string => uint256) public rarityCount;
+    mapping(bytes32 => bool) public usedGameIds;
+    
+    // Authorized game contracts that can mint
+    mapping(address => bool) public authorizedMinters;
 
     event NFTMinted(
         address indexed player,
         uint256 indexed tokenId,
         string rarity,
         string symbols,
-        string name
+        string name,
+        bytes32 gameId
     );
 
     constructor() ERC721("LuckLoop", "LOOP") {}
+
+    modifier onlyAuthorizedMinter() {
+        require(authorizedMinters[msg.sender] || msg.sender == owner(), "Not authorized to mint");
+        _;
+    }
+
+    function setAuthorizedMinter(address minter, bool authorized) external onlyOwner {
+        authorizedMinters[minter] = authorized;
+    }
 
     function mintNFT(
         address player,
@@ -39,8 +55,12 @@ contract LuckLoopNFT is ERC721URIStorage, Ownable {
         string memory description,
         string memory rarity,
         string memory symbols,
-        string memory tokenURI
-    ) public onlyOwner returns (uint256) {
+        string memory tokenURI,
+        bytes32 gameId
+    ) public onlyAuthorizedMinter nonReentrant returns (uint256) {
+        require(!usedGameIds[gameId], "Game ID already used");
+        require(player != address(0), "Invalid player address");
+        
         _tokenIds.increment();
         uint256 newTokenId = _tokenIds.current();
 
@@ -53,13 +73,15 @@ contract LuckLoopNFT is ERC721URIStorage, Ownable {
             rarity: rarity,
             symbols: symbols,
             timestamp: block.timestamp,
-            player: player
+            player: player,
+            gameId: gameId
         });
 
         playerNFTs[player].push(newTokenId);
         rarityCount[rarity]++;
+        usedGameIds[gameId] = true;
 
-        emit NFTMinted(player, newTokenId, rarity, symbols, name);
+        emit NFTMinted(player, newTokenId, rarity, symbols, name, gameId);
         return newTokenId;
     }
 
@@ -88,5 +110,9 @@ contract LuckLoopNFT is ERC721URIStorage, Ownable {
             rarityCount["rare"],
             rarityCount["common"]
         );
+    }
+
+    function isGameIdUsed(bytes32 gameId) public view returns (bool) {
+        return usedGameIds[gameId];
     }
 }
