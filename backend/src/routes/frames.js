@@ -1,10 +1,11 @@
 const express = require('express');
 const { generateFrameImage } = require('../services/imageGen');
 const { GameEngine } = require('../services/gameEngine');
-const { recordGameOnChain } = require('../services/blockchain');
+const { BlockchainService } = require('../services/blockchain');
 const router = express.Router();
 
 const gameEngine = new GameEngine();
+const blockchain = new BlockchainService();
 
 // Frame 1: Welcome
 router.get('/', (req, res) => {
@@ -21,28 +22,10 @@ router.get('/', (req, res) => {
     </head>
     <body>
         <h1>Luck Loop - Spin for NFTs!</h1>
+        <p>Connect your wallet and pay gas to mint your wins!</p>
     </body>
     </html>`;
     res.send(html);
-});
-
-// Welcome image
-router.get('/welcome-image', async (req, res) => {
-    try {
-        const imageBuffer = await generateFrameImage({
-            type: 'welcome',
-            title: 'Luck Loop',
-            subtitle: 'Spin the symbols and win a unique NFT!',
-            symbols: ['🎲', '🎲', '🎲'],
-            stats: 'Legendary: 1% | Epic: 5% | Rare: 15% | Common: 79%'
-        });
-        
-        res.setHeader('Content-Type', 'image/png');
-        res.send(imageBuffer);
-    } catch (error) {
-        console.error('Error generating welcome image:', error);
-        res.status(500).send('Error generating image');
-    }
 });
 
 // Frame 2: Spin action
@@ -55,13 +38,23 @@ router.post('/spin', async (req, res) => {
             return res.status(400).json({ error: 'Invalid user data' });
         }
 
-        const gameId = `game_${userFid}_${Date.now()}`;
+        // Generate game result
+        const gameId = ethers.keccak256(ethers.toUtf8Bytes(`${userFid}_${Date.now()}`));
         const result = await gameEngine.spin();
         
+        // Sign the result for verification
+        const signature = await blockchain.signGameResult(
+            '0x0000000000000000000000000000000000000000', // Placeholder, real address comes later
+            result.symbols.join(''),
+            result.rarity,
+            gameId
+        );
+
         // Store game result temporarily
         await gameEngine.storeGameResult(gameId, {
             userFid,
             ...result,
+            signature,
             timestamp: Date.now()
         });
 
@@ -71,7 +64,7 @@ router.post('/spin', async (req, res) => {
         <head>
             <meta property="fc:frame" content="vNext" />
             <meta property="fc:frame:image" content="${process.env.BASE_URL}/frames/result-image/${gameId}" />
-            <meta property="fc:frame:button:1" content="${result.rarity === 'common' ? '🔄 Spin Again' : '🎨 Mint NFT'}" />
+            <meta property="fc:frame:button:1" content="${result.rarity === 'common' ? '🔄 Spin Again' : '💰 Mint NFT (You Pay Gas)'}" />
             <meta property="fc:frame:button:2" content="📊 My Stats" />
             <meta property="fc:frame:post_url" content="${process.env.BASE_URL}/frames/${result.rarity === 'common' ? 'spin' : 'mint'}/${gameId}" />
             <meta property="og:title" content="Luck Loop Result!" />
@@ -86,88 +79,57 @@ router.post('/spin', async (req, res) => {
     }
 });
 
-// Result image
-router.get('/result-image/:gameId', async (req, res) => {
+// Frame 3: Mint instructions (User pays gas)
+router.post('/mint/:gameId', async (req, res) => {
     try {
         const { gameId } = req.params;
         const gameResult = await gameEngine.getGameResult(gameId);
         
         if (!gameResult) {
-            return res.status(404).send('Game not found');
+            return res.status(400).json({ error: 'Game not found' });
         }
 
-        const imageBuffer = await generateFrameImage({
-            type: 'result',
-            symbols: gameResult.symbols,
-            rarity: gameResult.rarity,
-            name: gameResult.name,
-            description: gameResult.description
-        });
-        
-        res.setHeader('Content-Type', 'image/png');
-        res.send(imageBuffer);
-    } catch (error) {
-        console.error('Error generating result image:', error);
-        res.status(500).send('Error generating image');
-    }
-});
-
-// Frame 3: Mint NFT
-router.post('/mint/:gameId', async (req, res) => {
-    try {
-        const { gameId } = req.params;
-        const { untrustedData } = req.body;
-        const userAddress = untrustedData?.address;
-        
-        const gameResult = await gameEngine.getGameResult(gameId);
-        
-        if (!gameResult || !userAddress) {
-            return res.status(400).json({ error: 'Invalid game or user data' });
-        }
-
-        // Record on blockchain
-        const txHash = await recordGameOnChain(userAddress, gameResult);
-        
         const html = `
         <!DOCTYPE html>
         <html>
         <head>
             <meta property="fc:frame" content="vNext" />
-            <meta property="fc:frame:image" content="${process.env.BASE_URL}/frames/nft-image/${gameId}" />
-            <meta property="fc:frame:button:1" content="🎰 Play Again" />
-            <meta property="fc:frame:button:2" content="🚀 Share Win" />
+            <meta property="fc:frame:image" content="${process.env.BASE_URL}/frames/mint-instructions/${gameId}" />
+            <meta property="fc:frame:button:1" content="🌐 Open Mint Page" />
+            <meta property="fc:frame:button:2" content="🎰 Play Again" />
+            <meta property="fc:frame:button:1:action" content="link" />
+            <meta property="fc:frame:button:1:target" content="${process.env.BASE_URL}/mint/${gameId}" />
             <meta property="fc:frame:post_url" content="${process.env.BASE_URL}/frames/" />
-            <meta property="og:title" content="NFT Minted!" />
+            <meta property="og:title" content="Ready to Mint!" />
         </head>
-        <body><h1>NFT Minted!</h1></body>
+        <body><h1>Ready to Mint!</h1></body>
         </html>`;
         
         res.send(html);
     } catch (error) {
-        console.error('Error minting NFT:', error);
-        res.status(500).json({ error: 'Minting failed' });
+        console.error('Error showing mint instructions:', error);
+        res.status(500).json({ error: 'Failed to show mint instructions' });
     }
 });
 
-// NFT preview image
-router.get('/nft-image/:gameId', async (req, res) => {
+// Mint instructions image
+router.get('/mint-instructions/:gameId', async (req, res) => {
     try {
         const { gameId } = req.params;
         const gameResult = await gameEngine.getGameResult(gameId);
         
         const imageBuffer = await generateFrameImage({
-            type: 'nft',
+            type: 'mint-instructions',
             symbols: gameResult.symbols,
             rarity: gameResult.rarity,
             name: gameResult.name,
-            description: gameResult.description,
-            timestamp: new Date().toLocaleDateString()
+            description: 'Click "Open Mint Page" to connect your wallet and mint your NFT!'
         });
         
         res.setHeader('Content-Type', 'image/png');
         res.send(imageBuffer);
     } catch (error) {
-        console.error('Error generating NFT image:', error);
+        console.error('Error generating mint instructions image:', error);
         res.status(500).send('Error generating image');
     }
 });
