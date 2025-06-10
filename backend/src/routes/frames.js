@@ -42,13 +42,6 @@ router.post('/spin', async (req, res) => {
         const gameId = ethers.keccak256(ethers.toUtf8Bytes(`${userFid}_${Date.now()}`));
         const result = await gameEngine.spin();
         
-        // Sign the result for verification
-        const signature = await blockchain.signGameResult(
-            '0x0000000000000000000000000000000000000000', // Placeholder, real address comes later
-            result.symbols.join(''),
-            result.rarity,
-            gameId
-        );
 
         // Store game result temporarily
         await gameEngine.storeGameResult(gameId, {
