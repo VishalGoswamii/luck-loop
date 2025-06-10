@@ -239,6 +239,7 @@
 
     <script>
         
+// Replace this function in your index.html
 async function storeGameResult() {
     try {
         const button = document.getElementById('store-result-button');
@@ -247,7 +248,8 @@ async function storeGameResult() {
 
         showStatus('Please confirm the transaction in your wallet...', 'info');
 
-        // Call the smart contract directly without getting a signature from the backend
+        // We're calling the smart contract directly with the game info.
+        // Super insecure, but it's what you wanted! A user can easily fake this data.
         const tx = await gameContract.storeGameResult(
             gameData.symbols.join(''),
             gameData.rarity,
@@ -270,6 +272,7 @@ async function storeGameResult() {
         button.innerHTML = '1. Store Game Result';
     }
 }
+
 
         // Configuration - these would come from environment variables in production
         const CONFIG = {
