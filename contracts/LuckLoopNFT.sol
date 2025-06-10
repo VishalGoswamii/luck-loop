@@ -2,9 +2,11 @@
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract LuckLoopNFT is ERC721, Ownable {
+// We've added ERC721URIStorage to handle the token URI
+contract LuckLoopNFT is ERC721, ERC721URIStorage, Ownable {
     uint256 private _nextTokenId;
     address private _authorizedMinter;
 
@@ -32,8 +34,23 @@ contract LuckLoopNFT is ERC721, Ownable {
     {
         uint256 tokenId = _nextTokenId++;
         _safeMint(player, tokenId);
+        // This will now work correctly!
         _setTokenURI(tokenId, tokenURI);
         emit NFTMinted(player, tokenId, rarity);
         return tokenId;
+    }
+    
+    // The functions below are required by ERC721URIStorage
+    function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
+        super._burn(tokenId);
+    }
+
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        override(ERC721, ERC721URIStorage)
+        returns (string memory)
+    {
+        return super.tokenURI(tokenId);
     }
 }
