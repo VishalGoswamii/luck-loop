@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+// This is the line that was missing!
 import "./LuckLoopNFT.sol";
 
 // WARNING: This version is INSECURE. It has no signature verification.
