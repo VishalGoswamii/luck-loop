@@ -1,3 +1,4 @@
+// contracts/scripts/deploy.js
 async function main() {
   console.log("Deploying contracts...");
 
@@ -7,7 +8,7 @@ async function main() {
   await nftContract.deployed();
   console.log("NFT Contract deployed to:", nftContract.address);
 
-  // Deploy Game contract
+  // Deploy Game contract (now only takes the NFT contract address)
   const LuckLoopGame = await ethers.getContractFactory("LuckLoopGame");
   const gameContract = await LuckLoopGame.deploy(nftContract.address);
   await gameContract.deployed();
@@ -20,7 +21,6 @@ async function main() {
   console.log("\n=== DEPLOYMENT COMPLETE ===");
   console.log("NFT Contract:", nftContract.address);
   console.log("Game Contract:", gameContract.address);
-  console.log("\nUpdate your .env files with these addresses!");
 }
 
 main().catch((error) => {
